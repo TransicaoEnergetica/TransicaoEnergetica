@@ -1,0 +1,156 @@
+---
+title: ""
+format: 
+  dashboard:
+    nav-buttons: [github]
+    github: https://github.com/
+logo: images/logo.png
+theme: [sandstone, theme/custom.scss]
+fig-width: 10
+fig-asp: 0.3
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+#| label: load-packages
+#| message: false
+#| context: setup
+library(gt)
+library(dplyr)
+library(ggplot2)
+library(purrr)
+library(ggiraph)
+library(htmltools)
+library(reactable)
+theme_set(theme_minimal(base_size = 24, base_family = "Atkinson Hyperlegible"))
+```
+
+# Geração e Consumo
+
+
+```{r}
+library(tidyverse)
+library(reactable)
+library(htmltools)
+data <- readxl::read_excel("data/ger_energ_40_30-04-24.xlsx", sheet="geracao_consumo")
+data <- data %>% select(-tipo_geracao_bak)
+
+# Select input filter with an "All" default option
+selectFilter <- function(tableId, style = "width: 80%; height: 100%;") {
+  function(values, name) {
+    tags$select(
+      # Set to undefined to clear the filter
+      onchange = sprintf("
+        const value = event.target.value
+        Reactable.setFilter('%s', '%s', value === '__ALL__' ? undefined : value)
+      ", tableId, name),
+      # "All" has a special value to clear the filter, and is the default option
+      tags$option(value = "__ALL__", "All"),
+      lapply(unique(values), tags$option),
+      "aria-label" = sprintf("Filter %s", name),
+      style = style
+    )
+  }
+}
+
+# Min range filter input that handles NaNs
+minRangeFilter <- function(tableId, style = "width: 100%;") {
+  function(values, name) {
+    values <- na.omit(values)
+    oninput <- sprintf("Reactable.setFilter('%s', '%s', this.value)", tableId, name)
+    tags$input(
+      type = "range",
+      min = floor(min(values)),
+      max = ceiling(max(values)),
+      value = floor(min(values)),
+      oninput = oninput,
+      style = style,
+      "aria-label" = sprintf("Filter by minimum %s", name)
+    )
+  }
+}
+
+# Min value filter method that handles NaNs
+filterMinValue <- JS("(rows, columnId, filterValue) => {
+  return rows.filter(row => {
+    const value = row.values[columnId]
+    return !isNaN(value) && value >= filterValue
+  })
+}")
+
+reactable(
+  data,
+  columns = list(
+    pais = colDef(
+      filterInput = selectFilter("tbl-input")
+    ),
+    tipo_geracao = colDef(
+      filterInput = selectFilter("tbl-input")
+    ),
+    Ano = colDef(
+      filterMethod = filterMinValue,
+      filterInput = minRangeFilter("tbl-input")
+    ),
+    BKWH = colDef(
+      filterInput = selectFilter("tbl-input"),
+      # Exact match filter method
+      filterMethod = JS("(rows, columnId, filterValue) => {
+        return rows.filter(row => row.values[columnId] === filterValue)
+      }")
+    )
+  ),
+  filterable = TRUE,
+  wrap = FALSE,
+  resizable = TRUE,
+  defaultPageSize = 5,
+  minRows = 5,
+  elementId = "tbl-input"
+)
+```
+
+## Grafico
+
+```{r}
+ggplot(data, aes(x=Ano, y=BKWH, color=pais)) + geom_point() + geom_line()
+```
+
+
+# Nuclear, Combustíveis Fósseis e Renováveis
+
+```{r}
+data1 <- readxl::read_excel("data/ger_energ_40_30-04-24.xlsx", sheet="nuc_ff_ren")
+data1 <- data1 %>% select(-tipo_geracao_bak)
+
+reactable(
+  data1,
+  columns = list(
+    pais = colDef(
+      filterInput = selectFilter("tbl-input")
+    ),
+    tipo_geracao = colDef(
+      filterInput = selectFilter("tbl-input")
+    ),
+    Ano = colDef(
+      filterMethod = filterMinValue,
+      filterInput = minRangeFilter("tbl-input")
+    ),
+    BKWH = colDef(
+      filterInput = selectFilter("tbl-input"),
+      # Exact match filter method
+      filterMethod = JS("(rows, columnId, filterValue) => {
+        return rows.filter(row => row.values[columnId] === filterValue)
+      }")
+    )
+  ),
+  filterable = TRUE,
+  wrap = FALSE,
+  resizable = TRUE,
+  defaultPageSize = 5,
+  minRows = 5,
+  elementId = "tbl-input"
+)
+
+```
+
