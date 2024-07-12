@@ -1,0 +1,406 @@
+---
+title: "DashBoard"
+format: 
+  dashboard:
+    nav-buttons: [home]
+    home: https://homeprojextransicaoenergetica.netlify.app/_site/
+logo: images/logo.png
+theme: [sandstone, theme/custom.scss]
+fig-width: 10
+fig-asp: 0.3
+
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+#| label: load-packages
+#| message: false
+#| context: setup
+library(tidyverse)
+
+```
+
+
+# Evolução Geração Vs Consumo
+
+```{r}
+
+data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "geracao_consumo")
+
+data <- data %>% select(-tipo_geracao_hierarquia)
+
+```
+
+## Row {.tabset}
+
+```{r}
+#| title: Evolução
+d_m <- data %>% filter(pais=="World" & Ano>=1992)
+d_m2 <- d_m %>% pivot_wider(names_from="tipo_geracao", values_from="BillionkWh")
+d_m2 <- d_m2 %>% rename(G_mundo="Generation", C_mundo="Consumption")
+
+
+d1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japan","Brazil","Canada", "South Korea","Germany","France", "Spain", "United Kingdom") & Ano>=1992)
+
+d2 <- d1 %>% pivot_wider(names_from="tipo_geracao", values_from="BillionkWh")
+
+dados_j <- full_join(d2, d_m2, by="Ano")
+
+d3 <- dados_j %>% group_by(Ano) %>% reframe(Pais=pais.x, percentualg=Generation/G_mundo*100, 
+percentualc=Consumption/C_mundo*100)
+
+d2 <- d2 %>% rename(Geração="Generation", Consumo="Consumption")
+
+library(plotly)
+library(ggplot2)
+p<- d2%>%
+  ggplot(aes(x=Geração, y=Consumo, color = pais,frame = Ano)) + geom_point(size=3) +
+  scale_y_continuous(limits = c(0, 9000)) +  
+  labs(x = "Geração de Energia Elétrica (BKWH)", 
+       y = "Consumo de Energia Elétrica (BKWH)", 
+       title = "Geração vs Consumo dos Top 12",
+       color = "País")
+  
+
+ggplotly(p)
+```
+
+
+```{r}
+#| title: Percentual
+
+d4 <- d3 %>% pivot_longer(cols = starts_with("perc"), names_to = "Tipo", values_to = "Percentual") %>% arrange(Ano,desc(Percentual))
+
+p1<- d3 %>%
+  ggplot(aes(x=percentualg, y=percentualc, color = Pais,frame = Ano)) + geom_point(size=3) + 
+  scale_y_continuous(limits = c(0, 50)) +
+  scale_x_continuous(limits = c(0, 50)) +
+  labs(x = "Geração de Energia Elétrica (%)", 
+       y = "Consumo de Energia Elétrica (%)", 
+       title = "Geração vs Consumo dos Top 12",
+       color = "País")
+
+ggplotly(p1)
+ 
+ # plot_ly(x = ~Tipo, y = ~Percentual, color = ~Pais, frame=~Ano) %>%
+ #  add_bars() %>% layout(barmode = "stack")
+# plot_ly(x = ~Tipo, y = ~Percentual, type = "bar", color = ~Pais, frame=~Ano) |> 
+#   layout(barmode = "stack")
+```
+
+
+# Geração e Consumo em BkWh
+
+```{r}
+
+data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "geracao_consumo")
+
+data <- data %>% select(-tipo_geracao_hierarquia)
+
+```
+
+## Row {.tabset}
+
+```{r}
+#| title: Evolução do Consumo
+d1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japan","Brazil","Canada", "South Korea","Germany","France", "Spain", "United Kingdom") & Ano>=1992)
+
+d2 <- d1 %>% pivot_wider(names_from="tipo_geracao", values_from="BillionkWh")
+
+d2 <- d2 %>% rename(Geração="Generation", Consumo="Consumption")
+
+# library(ddplot)
+
+d2 %>%
+  ddplot::barChartRace(
+    x = "Consumo",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Consumo (em Bilhões de kWh)",
+    title = ""
+  )
+```
+
+
+```{r}
+#| title: Evolução da Geração
+d1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japan","Brazil","Canada", "South Korea","Germany","France", "Spain", "United Kingdom") & Ano>=1992)
+
+d2 <- d1 %>% pivot_wider(names_from="tipo_geracao", values_from="BillionkWh")
+
+d2 <- d2 %>% rename(Geração="Generation", Consumo="Consumption")
+
+# library(ddplot)
+
+d2 %>%
+  ddplot::barChartRace(
+    x = "Geração",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Geração (em Bilhões de kWh)",
+    title = ""
+  )
+```
+
+
+# Geração e Consumo em % 
+
+## Row {.tabset}
+
+```{r}
+#| title: Geração
+d4 %>% filter(Tipo=="percentualg") %>%  ddplot::barChartRace(
+    x = "Percentual",
+    y = "Pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "% do Total Mundial Gerado",
+    title = ""
+  )
+
+```
+
+
+```{r}
+#| title: Consumo
+d4 %>% filter(Tipo=="percentualc") %>%  ddplot::barChartRace(
+    x = "Percentual",
+    y = "Pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "% do Total Mundial Consumido",
+    title = ""
+  )
+
+```
+
+
+# Tipo de Fonte de Geração
+
+```{r}
+data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "nuc_ff_ren")
+
+data <- data %>% select(-tipo_geracao_hierarquia)
+
+dd1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japan","Brazil","Canada", "South Korea","Germany","France", "Spain", "United Kingdom") & Ano>=1992)
+```
+
+
+## Row {.tabset}
+
+```{r}
+#| title: Nuclear
+dd1 %>% filter(tipo_geracao=="Nuclear") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado Nuclear (bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+
+```{r}
+#| title: Combustivel Fossil
+dd1 %>% filter(tipo_geracao=="Fossil fuels") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado Combustiveis Fósseis (bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+
+```{r}
+#| title: Renováveis
+dd1 %>% filter(tipo_geracao=="Renewables") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado Renováveis (bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+
+# Tipo de Fonte de Geração 2
+
+## Column
+
+```{r}
+
+pp1<- dd1%>% filter(Ano==1992) %>%  ggplot(aes(
+           y = reorder(pais,BillionkWh), 
+           x=BillionkWh,
+          # tooltip = BKWH,
+           data_id = pais,
+           fill=tipo_geracao)) +
+  geom_bar(stat="identity") +
+  labs(y="", x="1992") + 
+  theme_minimal()
+
+ggplotly(pp1)
+
+```
+
+
+```{r}
+
+pp2<- dd1%>% filter(Ano==2002) %>%  ggplot(aes(
+           y = reorder(pais,BillionkWh), 
+           x=BillionkWh,
+        #   tooltip = BKWH,
+           data_id = pais,
+           fill=tipo_geracao)) +
+  geom_bar(stat="identity") +
+  labs(y="", x="2002") + 
+  theme_minimal()
+
+ggplotly(pp2)
+
+```
+
+
+## Column
+
+```{r}
+
+pp3<- dd1%>% filter(Ano==2012) %>%  ggplot(aes(
+           y = reorder(pais,BillionkWh), 
+           x=BillionkWh,
+        #   tooltip = BKWH,
+           data_id = pais,
+           fill=tipo_geracao)) +
+  geom_bar(stat="identity") +
+  labs(y="", x="2012") + 
+  theme_minimal()
+
+ggplotly(pp3)
+
+```
+
+
+```{r}
+
+pp4<- dd1%>% filter(Ano==2022) %>%  ggplot(aes(
+           y = reorder(pais,BillionkWh), 
+           x=BillionkWh,
+        #   tooltip = BKWH,
+           data_id = pais,
+           fill=tipo_geracao)) +
+  geom_bar(stat="identity") +
+  labs(y="", x="2022") + 
+  theme_minimal()
+
+ggplotly(pp4)
+
+```
+
+# Renováveis
+
+```{r}
+data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "hidronhidrodet")
+
+data <- data %>% select(-tipo_geracao_hierarquia)
+
+dd1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japan","Brazil","Canada", "South Korea","Germany","France", "Spain", "United Kingdom") & Ano>=1992)
+```
+
+## Row {.tabset}
+
+```{r}
+#| title: Hidroelétricas
+dd1 %>% filter(tipo_geracao=="Hydroelectricity") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado Hidroelétricas (bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+
+```{r}
+#| title: Solar
+dd1 %>% filter(tipo_geracao=="Solar") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado Solar (bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+
+```{r}
+#| title: Vento
+dd1 %>% filter(tipo_geracao=="Wind") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado Vento (bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+
+```{r}
+#| title: Geotérmicas
+dd1 %>% filter(tipo_geracao=="Geothermal") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado Geotérmicas (bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+
+```{r}
+#| title: Marés e Ondas
+dd1 %>% filter(tipo_geracao=="Tide and wave") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado Marés e Ondas (bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+
+
+```{r}
+#| title: Biomassa e Resíduos
+dd1 %>% filter(tipo_geracao=="Biomass and waste") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado Biomassa e Resíduos (bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+
