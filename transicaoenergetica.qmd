@@ -390,3 +390,67 @@ dd1 %>% filter(tipo_geracao=="Biomass and waste") %>%  ddplot::barChartRace(
   )
 
 ```
+
+# CF
+
+```{r}
+data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "ff")
+
+data <- data %>% select(-tipo_geracao_hierarquia)
+
+dd1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japan","Brazil","Canada", "South Korea","Germany","France", "Spain", "United Kingdom") & Ano>=1992)
+```
+
+## Row {.tabset}
+
+```{r}
+#| title: Carvão
+dd1 %>% filter(tipo_geracao=="Coal") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado por Carvão(bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+```{r}
+#| title: Gás Natural
+dd1 %>% filter(tipo_geracao=="Natural gas") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado po Gás Natural(bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+```{r}
+#| title: Petróleo
+dd1 %>% filter(tipo_geracao=="Oil") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado por Petróleo(bilhões de kWh)",
+    title = ""
+  )
+
+```
+
+```{r}
+#| title: Outros Gases
+dd1 %>% filter(tipo_geracao=="Other gases") %>%  ddplot::barChartRace(
+    x = "BillionkWh",
+    y = "pais",
+    time = "Ano",
+    ytitle = "Pais",
+    xtitle = "Total Gerado por Outros Gases(bilhões de kWh)",
+    title = ""
+  )
+
+```
