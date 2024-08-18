@@ -398,7 +398,7 @@ data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "ff")
 
 data <- data %>% select(-tipo_geracao_hierarquia)
 
-dd1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japan","Brazil","Canada", "South Korea","Germany","France", "Spain", "United Kingdom") & Ano>=1992)
+dd1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japan","Brazil","Canada", "South Korea","Germany","France", "Spain", "United Kingdom") & Ano>=2000)
 ```
 
 ## Row {.tabset}
