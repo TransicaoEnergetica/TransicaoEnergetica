@@ -34,7 +34,7 @@ Os dados são de geração e consumo de eletricidade, obtidos no site da EIA (US
 
 ```{r}
 
-data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "geracao_consumo")
+data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "geracao_consumo")
 
 data <- data %>% select(-tipo_geracao_hierarquia)
 
@@ -100,7 +100,7 @@ ggplotly(p1)
 
 ```{r}
 
-data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "geracao_consumo")
+data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "geracao_consumo")
 
 data <- data %>% select(-tipo_geracao_hierarquia)
 
@@ -183,7 +183,7 @@ d4 %>% filter(Tipo=="percentualc") %>%  ddplot::barChartRace(
 # Tipo de Fonte de Geração
 
 ```{r}
-data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "nuc_ff_ren")
+data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "nuc_ff_ren")
 
 data <- data %>% select(-tipo_geracao_hierarquia)
 
@@ -237,14 +237,14 @@ dd1 %>% filter(tipo_geracao=="Renewables") %>%  ddplot::barChartRace(
 
 ```{r}
 
-pp1<- dd1%>% filter(Ano==1992) %>%  ggplot(aes(
+pp1<- dd1%>% filter(Ano==1993) %>%  ggplot(aes(
            y = reorder(pais,BillionkWh), 
            x=BillionkWh,
           # tooltip = BKWH,
            data_id = pais,
            fill=tipo_geracao)) +
   geom_bar(stat="identity") +
-  labs(y="", x="1992") + 
+  labs(y="", x="1993") + 
   theme_minimal()
 
 ggplotly(pp1)
@@ -253,14 +253,14 @@ ggplotly(pp1)
 
 ```{r}
 
-pp2<- dd1%>% filter(Ano==2002) %>%  ggplot(aes(
+pp2<- dd1%>% filter(Ano==2003) %>%  ggplot(aes(
            y = reorder(pais,BillionkWh), 
            x=BillionkWh,
         #   tooltip = BKWH,
            data_id = pais,
            fill=tipo_geracao)) +
   geom_bar(stat="identity") +
-  labs(y="", x="2002") + 
+  labs(y="", x="2003") + 
   theme_minimal()
 
 ggplotly(pp2)
@@ -271,14 +271,14 @@ ggplotly(pp2)
 
 ```{r}
 
-pp3<- dd1%>% filter(Ano==2012) %>%  ggplot(aes(
+pp3<- dd1%>% filter(Ano==2013) %>%  ggplot(aes(
            y = reorder(pais,BillionkWh), 
            x=BillionkWh,
         #   tooltip = BKWH,
            data_id = pais,
            fill=tipo_geracao)) +
   geom_bar(stat="identity") +
-  labs(y="", x="2012") + 
+  labs(y="", x="2013") + 
   theme_minimal()
 
 ggplotly(pp3)
@@ -287,14 +287,14 @@ ggplotly(pp3)
 
 ```{r}
 
-pp4<- dd1%>% filter(Ano==2022) %>%  ggplot(aes(
+pp4<- dd1%>% filter(Ano==2023) %>%  ggplot(aes(
            y = reorder(pais,BillionkWh), 
            x=BillionkWh,
         #   tooltip = BKWH,
            data_id = pais,
            fill=tipo_geracao)) +
   geom_bar(stat="identity") +
-  labs(y="", x="2022") + 
+  labs(y="", x="2023") + 
   theme_minimal()
 
 ggplotly(pp4)
@@ -304,7 +304,7 @@ ggplotly(pp4)
 # Renováveis
 
 ```{r}
-data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "hidronhidrodet")
+data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "hidronhidrodet")
 
 data <- data %>% select(-tipo_geracao_hierarquia)
 
@@ -394,7 +394,7 @@ dd1 %>% filter(tipo_geracao=="Biomass and waste") %>%  ddplot::barChartRace(
 # CF
 
 ```{r}
-data <- readxl::read_excel("data/ger_energ_40_04-07-24.xlsx", sheet = "ff")
+data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "ff")
 
 data <- data %>% select(-tipo_geracao_hierarquia)
 
