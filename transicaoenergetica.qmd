@@ -20,7 +20,11 @@ editor_options:
 #| message: false
 #| context: setup
 library(tidyverse)
-
+library(dplyr)
+library(ggplot2)
+library(ggiraph)
+library(scales)
+library(htmltools)
 ```
 
 # {.sidebar}
@@ -36,8 +40,132 @@ Atualização: 11/04/2025
 ```{r}
 
 data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "geracao_consumo")
-
 data <- data %>% select(-tipo_geracao_hierarquia)
+
+## funçã para grafico dinamico
+plot_geracao_consumo_timeline <- function(
+  data,
+  x = "Geracao",
+  y = "Consumo",
+  country = "pais",
+  year = "Ano",
+  title = "Geração vs Consumo dos Top 12",
+  x_label = "Geração de Energia Elétrica (BKWH)",
+  y_label = "Consumo de Energia Elétrica (BKWH)",
+  y_max = 9000,
+  play_interval = 900,
+  countries_order = c(
+    "Brazil", "Canada", "China",
+    "France", "Germany", "India",
+    "Japan", "Russia", "South Korea",
+    "Spain", "United Kingdom", "United States"
+  ),
+  palette = c(
+    "#1b9e77", "#d95f02", "#7570b3", "#e7298a",
+    "#66a61e", "#e6ab02", "#a6761d", "#666666",
+    "#8dd3c7", "#fb8072", "#80b1d3", "#fdb462"
+  ),
+  legend_ncol = 4,
+  legend_font_px = 11,
+  point_size = 10
+) {
+  stopifnot(
+    is.data.frame(data),
+    length(countries_order) == length(palette),
+    legend_ncol >= 1
+  )
+
+  pkgs <- c("dplyr", "echarts4r", "htmlwidgets", "jsonlite", "htmltools", "tibble")
+  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing) > 0) {
+    stop("Pacotes ausentes: ", paste(missing, collapse = ", "),
+         ". Instale-os e rode novamente.")
+  }
+
+  map_cores <- tibble::tibble(
+    .pais = countries_order,
+    .pais_id = seq_along(countries_order),
+    .cor = palette
+  )
+
+  df <- data |>
+    dplyr::transmute(
+      .pais = as.character(.data[[country]]),
+      .ano  = as.character(.data[[year]]),
+      .x    = suppressWarnings(as.numeric(.data[[x]])),
+      .y    = suppressWarnings(as.numeric(.data[[y]]))
+    ) |>
+    dplyr::left_join(map_cores, by = ".pais") |>
+    dplyr::filter(
+      !is.na(.pais), !is.na(.ano),
+      !is.na(.x), !is.na(.y),
+      !is.na(.pais_id), !is.na(.cor)
+    ) |>
+    dplyr::arrange(.ano)
+
+  # Tooltip: usa p.name (pais_id) e converte para nome.
+  # x_label e y_label entram no tooltip com escaping correto via JSON.
+  tooltip_js <- htmlwidgets::JS(sprintf(
+    "function(p){
+       var id = p.name;
+       var names = %s;
+       var country = (id && names[id-1]) ? names[id-1] : '';
+       var v = p.value || [];
+       var xlab = %s;
+       var ylab = %s;
+       return 'País: ' + country + '<br>' +
+              xlab + ': ' + (v[0] !== undefined ? v[0].toLocaleString() : '') + '<br>' +
+              ylab + ': ' + (v[1] !== undefined ? v[1].toLocaleString() : '');
+     }",
+    jsonlite::toJSON(countries_order, auto_unbox = TRUE),
+    jsonlite::toJSON(x_label, auto_unbox = TRUE),
+    jsonlite::toJSON(y_label, auto_unbox = TRUE)
+  ))
+
+  grafico <- df |>
+    dplyr::group_by(.ano) |>
+    echarts4r::e_charts(.x, timeline = TRUE) |>
+    echarts4r::e_scatter(
+      .y,
+      bind = .pais_id,
+      symbol_size = point_size
+    ) |>
+    echarts4r::e_add_nested("itemStyle", color = .cor) |>
+    echarts4r::e_tooltip(trigger = "item", formatter = tooltip_js) |>
+    echarts4r::e_x_axis(name = x_label) |>
+    echarts4r::e_y_axis(name = y_label, min = 0, max = y_max) |>
+    echarts4r::e_timeline_opts(autoPlay = TRUE, loop = TRUE, playInterval = play_interval) |>
+    echarts4r::e_legend(show = FALSE) %>%   # <- REMOVE a legenda ".y"
+    echarts4r::e_title(title)
+
+  legenda <- htmltools::tags$div(
+    style = paste0(
+      "display:grid;",
+      "grid-template-columns: repeat(", legend_ncol, ", max-content);",
+      "gap:6px 18px;",
+      "font-size:", legend_font_px, "px;",
+      "margin-top:8px;",
+      "align-self:center;"
+    ),
+    lapply(seq_len(nrow(map_cores)), function(i) {
+      htmltools::tags$div(
+        style = "display:flex;align-items:center;gap:6px;white-space:nowrap;",
+        htmltools::tags$span(style = paste0(
+          "display:inline-block;width:10px;height:10px;border-radius:2px;background:",
+          map_cores$.cor[i], ";"
+        )),
+        htmltools::tags$span(map_cores$.pais[i])
+      )
+    })
+  )
+
+  htmltools::tags$div(
+    style = "width:100%; display:flex; flex-direction:column;",
+    grafico,
+    legenda
+  )
+}
+
 
 ```
 
@@ -56,56 +184,40 @@ d2 <- d1 %>% pivot_wider(names_from="tipo_geracao", values_from="BillionkWh")
 
 dados_j <- full_join(d2, d_m2, by="Ano")
 
-d3 <- dados_j %>% group_by(Ano) %>% reframe(Pais=pais.x, percentualg=Generation/G_mundo*100, 
+d3 <- dados_j %>% group_by(Ano) %>% reframe(pais=pais.x, percentualg=Generation/G_mundo*100, 
 percentualc=Consumption/C_mundo*100)
 
-d2 <- d2 %>% rename(Geração="Generation", Consumo="Consumption")
+d2 <- d2 %>% rename(Geracao="Generation", Consumo="Consumption")
 
-library(plotly)
-library(ggplot2)
-p<- d2%>%
-  ggplot(aes(x=Geração, y=Consumo, color = pais,frame = Ano)) + geom_point(size=3) +
-  scale_y_continuous(limits = c(0, 9000)) +  
-  labs(x = "Geração de Energia Elétrica (BKWH)", 
-       y = "Consumo de Energia Elétrica (BKWH)", 
-       title = "Geração vs Consumo dos Top 12",
-       color = "País")
-  
+#| echo: false
+plot_geracao_consumo_timeline(
+  d2,
+  x = "Geracao",
+  y = "Consumo",
+  x_label = "Geração (BKWH)",
+  y_label = "Consumo (BKWH)",
+  title = "Geração vs Consumo — Top 12"
+)
 
-ggplotly(p)
+
 ```
 
 ```{r}
 #| title: Percentual
 
-d4 <- d3 %>% pivot_longer(cols = starts_with("perc"), names_to = "Tipo", values_to = "Percentual") %>% arrange(Ano,desc(Percentual))
+plot_geracao_consumo_timeline(
+  d3,
+  x = "percentualg",
+  y = "percentualc",
+  x_label = "Geração (%)",
+  y_label = "Consumo (%)",
+  y_max = 60,
+  title = "Geração vs Consumo — Top 12 em Percentual do Total Mundial"
+)
 
-p1<- d3 %>%
-  ggplot(aes(x=percentualg, y=percentualc, color = Pais,frame = Ano)) + geom_point(size=3) + 
-  scale_y_continuous(limits = c(0, 50)) +
-  scale_x_continuous(limits = c(0, 50)) +
-  labs(x = "Geração de Energia Elétrica (%)", 
-       y = "Consumo de Energia Elétrica (%)", 
-       title = "Geração vs Consumo dos Top 12",
-       color = "País")
-
-ggplotly(p1)
- 
- # plot_ly(x = ~Tipo, y = ~Percentual, color = ~Pais, frame=~Ano) %>%
- #  add_bars() %>% layout(barmode = "stack")
-# plot_ly(x = ~Tipo, y = ~Percentual, type = "bar", color = ~Pais, frame=~Ano) |> 
-#   layout(barmode = "stack")
 ```
 
 # Geração e Consumo em BkWh
-
-```{r}
-
-data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "geracao_consumo")
-
-data <- data %>% select(-tipo_geracao_hierarquia)
-
-```
 
 ## Row {.tabset}
 
@@ -115,7 +227,7 @@ d1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japa
 
 d2 <- d1 %>% pivot_wider(names_from="tipo_geracao", values_from="BillionkWh")
 
-d2 <- d2 %>% rename(Geração="Generation", Consumo="Consumption")
+d2 <- d2 %>% rename(Geracao="Generation", Consumo="Consumption")
 
 # library(ddplot)
 
@@ -132,17 +244,10 @@ d2 %>%
 
 ```{r}
 #| title: Evolução da Geração
-d1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Japan","Brazil","Canada", "South Korea","Germany","France", "Spain", "United Kingdom") & Ano>=1992)
-
-d2 <- d1 %>% pivot_wider(names_from="tipo_geracao", values_from="BillionkWh")
-
-d2 <- d2 %>% rename(Geração="Generation", Consumo="Consumption")
-
-# library(ddplot)
 
 d2 %>%
   ddplot::barChartRace(
-    x = "Geração",
+    x = "Geracao",
     y = "pais",
     time = "Ano",
     ytitle = "Pais",
@@ -157,9 +262,12 @@ d2 %>%
 
 ```{r}
 #| title: Geração
+
+d4 <- d3 %>% pivot_longer(cols = starts_with("perc"), names_to = "Tipo", values_to = "Percentual") %>% arrange(Ano,desc(Percentual))
+
 d4 %>% filter(Tipo=="percentualg") %>%  ddplot::barChartRace(
     x = "Percentual",
-    y = "Pais",
+    y = "pais",
     time = "Ano",
     ytitle = "Pais",
     xtitle = "% do Total Mundial Gerado",
@@ -172,7 +280,7 @@ d4 %>% filter(Tipo=="percentualg") %>%  ddplot::barChartRace(
 #| title: Consumo
 d4 %>% filter(Tipo=="percentualc") %>%  ddplot::barChartRace(
     x = "Percentual",
-    y = "Pais",
+    y = "pais",
     time = "Ano",
     ytitle = "Pais",
     xtitle = "% do Total Mundial Consumido",
@@ -232,75 +340,6 @@ dd1 %>% filter(tipo_geracao=="Renewables") %>%  ddplot::barChartRace(
 
 ```
 
-# Tipo de Fonte de Geração 2
-
-## Column
-
-```{r}
-
-pp1<- dd1%>% filter(Ano==1993) %>%  ggplot(aes(
-           y = reorder(pais,BillionkWh), 
-           x=BillionkWh,
-          # tooltip = BKWH,
-           data_id = pais,
-           fill=tipo_geracao)) +
-  geom_bar(stat="identity") +
-  labs(y="", x="1993") + 
-  theme_minimal()
-
-ggplotly(pp1)
-
-```
-
-```{r}
-
-pp2<- dd1%>% filter(Ano==2003) %>%  ggplot(aes(
-           y = reorder(pais,BillionkWh), 
-           x=BillionkWh,
-        #   tooltip = BKWH,
-           data_id = pais,
-           fill=tipo_geracao)) +
-  geom_bar(stat="identity") +
-  labs(y="", x="2003") + 
-  theme_minimal()
-
-ggplotly(pp2)
-
-```
-
-## Column
-
-```{r}
-
-pp3<- dd1%>% filter(Ano==2013) %>%  ggplot(aes(
-           y = reorder(pais,BillionkWh), 
-           x=BillionkWh,
-        #   tooltip = BKWH,
-           data_id = pais,
-           fill=tipo_geracao)) +
-  geom_bar(stat="identity") +
-  labs(y="", x="2013") + 
-  theme_minimal()
-
-ggplotly(pp3)
-
-```
-
-```{r}
-
-pp4<- dd1%>% filter(Ano==2023) %>%  ggplot(aes(
-           y = reorder(pais,BillionkWh), 
-           x=BillionkWh,
-        #   tooltip = BKWH,
-           data_id = pais,
-           fill=tipo_geracao)) +
-  geom_bar(stat="identity") +
-  labs(y="", x="2023") + 
-  theme_minimal()
-
-ggplotly(pp4)
-
-```
 
 # Renováveis
 
