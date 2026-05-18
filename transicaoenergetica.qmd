@@ -25,6 +25,8 @@ library(ggplot2)
 library(ggiraph)
 library(scales)
 library(htmltools)
+library(gganimate)
+library(hrbrthemes)
 ```
 
 # {.sidebar}
@@ -33,13 +35,13 @@ Este Dashboard faz parte do Projeto de Extensão em Energias Renováveis e Mudan
 
 Os dados são de geração e consumo de eletricidade, obtidos no site da EIA (US Energy Information Administration)
 
-Atualização: 11/04/2025
+Atualização: 18/05/2026
 
 # Evolução Geração Vs Consumo
 
 ```{r}
 
-data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "geracao_consumo")
+data <- readxl::read_excel("data/EIA_18-05-26.xlsx", sheet = "geracao_consumo")
 data <- data %>% select(-tipo_geracao_hierarquia)
 
 ## funçã para grafico dinamico
@@ -52,7 +54,7 @@ plot_geracao_consumo_timeline <- function(
   title = "Geração vs Consumo dos Top 12",
   x_label = "Geração de Energia Elétrica (BKWH)",
   y_label = "Consumo de Energia Elétrica (BKWH)",
-  y_max = 9000,
+  y_max = 11000,
   play_interval = 900,
   countries_order = c(
     "Brazil", "Canada", "China",
@@ -229,70 +231,91 @@ d2 <- d1 %>% pivot_wider(names_from="tipo_geracao", values_from="BillionkWh")
 
 d2 <- d2 %>% rename(Geracao="Generation", Consumo="Consumption")
 
-# library(ddplot)
+d2 %>% 
+  group_by(Ano) %>% 
+  arrange(-Consumo) %>% 
+  slice(1:20) %>%
+  mutate(rank = rank(-Consumo),
+         Value_rel = Consumo/Consumo[rank == 1], 
+         Value_lbl = paste0(" ", round(Consumo, digits=0))) %>% 
+  ungroup() -> df_ploting
 
-d2 %>%
-  ddplot::barChartRace(
-    x = "Consumo",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Consumo (em Bilhões de kWh)",
-    title = ""
-  )
+df_ploting$Consumo %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = Consumo/2, height = Consumo, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = Consumo, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Consumo (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
+
+#, transition_length = 33, state_length = 1)
 ```
 
 ```{r}
 #| title: Evolução da Geração
 
-d2 %>%
-  ddplot::barChartRace(
-    x = "Geracao",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Geração (em Bilhões de kWh)",
-    title = ""
-  )
+d2 %>% 
+  group_by(Ano) %>% 
+  arrange(-Geracao) %>% 
+  slice(1:20) %>%
+  mutate(rank = rank(-Geracao),
+         Value_rel = Geracao/Geracao[rank == 1], 
+         Value_lbl = paste0(" ", round(Geracao, digits=0))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$Geracao %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = Geracao/2, height = Geracao, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = Geracao, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Geração (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 ```
 
-# Geração e Consumo em %
-
-## Row {.tabset}
-
-```{r}
-#| title: Geração
-
-d4 <- d3 %>% pivot_longer(cols = starts_with("perc"), names_to = "Tipo", values_to = "Percentual") %>% arrange(Ano,desc(Percentual))
-
-d4 %>% filter(Tipo=="percentualg") %>%  ddplot::barChartRace(
-    x = "Percentual",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "% do Total Mundial Gerado",
-    title = ""
-  )
-
-```
-
-```{r}
-#| title: Consumo
-d4 %>% filter(Tipo=="percentualc") %>%  ddplot::barChartRace(
-    x = "Percentual",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "% do Total Mundial Consumido",
-    title = ""
-  )
-
-```
 
 # Tipo de Fonte de Geração
 
 ```{r}
-data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "nuc_ff_ren")
+data <- readxl::read_excel("data/EIA_18-05-26.xlsx", sheet = "nuc_ff_ren")
 
 data <- data %>% select(-tipo_geracao_hierarquia)
 
@@ -303,40 +326,126 @@ dd1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Jap
 
 ```{r}
 #| title: Nuclear
-dd1 %>% filter(tipo_geracao=="Nuclear") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado Nuclear (bilhões de kWh)",
-    title = ""
-  )
+
+dd1 %>% filter(tipo_geracao=="Nuclear") %>% 
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  slice(1:20) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=0))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Nuclear (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
+
 
 ```
 
 ```{r}
 #| title: Combustivel Fossil
-dd1 %>% filter(tipo_geracao=="Fossil fuels") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado Combustiveis Fósseis (bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Fossil fuels") %>% 
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  slice(1:20) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=0))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Combustíveis Fosseis (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
 ```{r}
 #| title: Renováveis
-dd1 %>% filter(tipo_geracao=="Renewables") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado Renováveis (bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Renewables") %>%
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  slice(1:20) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=0))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Renováveis (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
@@ -344,7 +453,7 @@ dd1 %>% filter(tipo_geracao=="Renewables") %>%  ddplot::barChartRace(
 # Renováveis
 
 ```{r}
-data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "hidronhidrodet")
+data <- readxl::read_excel("data/EIA_18-05-26.xlsx", sheet = "hidronhidrodet")
 
 data <- data %>% select(-tipo_geracao_hierarquia)
 
@@ -355,86 +464,253 @@ dd1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Jap
 
 ```{r}
 #| title: Hidroelétricas
-dd1 %>% filter(tipo_geracao=="Hydroelectricity") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado Hidroelétricas (bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Hydroelectricity") |>
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  slice(1:20) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=0))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Hidroelétricas (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
 ```{r}
 #| title: Solar
-dd1 %>% filter(tipo_geracao=="Solar") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado Solar (bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Solar") |>
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  filter(BillionkWh>0) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=1))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Solar (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
 ```{r}
 #| title: Vento
-dd1 %>% filter(tipo_geracao=="Wind") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado Vento (bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Wind") |>
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  filter(BillionkWh>0) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 2], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=1))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Vento (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
 ```{r}
 #| title: Geotérmicas
-dd1 %>% filter(tipo_geracao=="Geothermal") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado Geotérmicas (bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Geothermal") |>
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  filter(BillionkWh>0) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=2))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Geotérmica (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
 ```{r}
 #| title: Marés e Ondas
-dd1 %>% filter(tipo_geracao=="Tide and wave") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado Marés e Ondas (bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Tide and wave") |>
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  filter(BillionkWh>0) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=3))) %>% 
+  ungroup() -> df_ploting
 
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Maré e Ondas (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 ```
 
 ```{r}
 #| title: Biomassa e Resíduos
-dd1 %>% filter(tipo_geracao=="Biomass and waste") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado Biomassa e Resíduos (bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Biomass and waste") |>
+    group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  filter(BillionkWh>0) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=1))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Biomassa e Resíduos (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
 # CF
 
 ```{r}
-data <- readxl::read_excel("data/EIA_11-04-25.xlsx", sheet = "ff")
+data <- readxl::read_excel("data/EIA_18-05-26.xlsx", sheet = "ff")
 
 data <- data %>% select(-tipo_geracao_hierarquia)
 
@@ -445,52 +721,164 @@ dd1 <- data %>% filter(pais %in% c("China","United States","India","Russia","Jap
 
 ```{r}
 #| title: Carvão
-dd1 %>% filter(tipo_geracao=="Coal") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado por Carvão(bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Coal") |>
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  filter(BillionkWh>0) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=1))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Carvão (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
 ```{r}
 #| title: Gás Natural
-dd1 %>% filter(tipo_geracao=="Natural gas") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado po Gás Natural(bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Natural gas") |>
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  filter(BillionkWh>0) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=1))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Gás Natural (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
 ```{r}
 #| title: Petróleo
-dd1 %>% filter(tipo_geracao=="Oil") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado por Petróleo(bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Oil") |>
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  filter(BillionkWh>0) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=1))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Oleo (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
 
 ```{r}
 #| title: Outros Gases
-dd1 %>% filter(tipo_geracao=="Other gases") %>%  ddplot::barChartRace(
-    x = "BillionkWh",
-    y = "pais",
-    time = "Ano",
-    ytitle = "Pais",
-    xtitle = "Total Gerado por Outros Gases(bilhões de kWh)",
-    title = ""
-  )
+dd1 %>% filter(tipo_geracao=="Other gases") |>
+  group_by(Ano) %>% 
+  arrange(-BillionkWh) %>% 
+  filter(BillionkWh>0) %>%
+  mutate(rank = rank(-BillionkWh),
+         Value_rel = BillionkWh/BillionkWh[rank == 1], 
+         Value_lbl = paste0(" ", round(BillionkWh, digits=1))) %>% 
+  ungroup() -> df_ploting
+
+df_ploting$BillionkWh %>% range() -> min_max
+
+df_ploting %>% 
+  ggplot(aes(rank, group = pais, fill = pais, color = pais)) +
+  geom_tile(aes(y = BillionkWh/2, height = BillionkWh, width = 0.55), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(pais, " ")), vjust = 0.2, hjust = 1, size = 4.5) +
+  geom_text(aes(y = BillionkWh, label = Value_lbl, hjust = 0, size = 3, fontface = "bold")) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, 1.08*min_max[2])) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  theme(axis.title = element_blank()) + 
+  theme(legend.position = "none") + 
+  theme(plot.title = element_text(size = 12)) + 
+  theme(plot.caption = element_text(color = "black", size = 10)) + 
+  theme(plot.subtitle = element_text(color = "black", size = 11)) + 
+  theme(plot.margin = unit(c(0.1, 1, 1, 3.5), "cm")) + 
+  ease_aes('cubic-in-out') -> plots
+
+plots + 
+  transition_time(Ano) + 
+  labs(title = "Outros gases (BkWH): {round(frame_time, digits=0)}", 
+       subtitle  =  "Top 12",
+       caption  = "Fonte de dados: EIA")
 
 ```
